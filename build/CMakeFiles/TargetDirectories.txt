@@ -1,0 +1,4 @@
+/root/hw3/build/CMakeFiles/ndarray_backend_cpu.dir
+/root/hw3/build/CMakeFiles/ndarray_backend_cuda.dir
+/root/hw3/build/CMakeFiles/edit_cache.dir
+/root/hw3/build/CMakeFiles/rebuild_cache.dir
