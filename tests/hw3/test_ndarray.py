@@ -264,6 +264,7 @@ permute_params = [
     {"dims": (4, 5, 6), "axes": (0, 1, 2)},
     {"dims": (4, 5, 6), "axes": (1, 0, 2)},
     {"dims": (4, 5, 6), "axes": (2, 1, 0)},
+    {"dims": (4,5), "axes": (1, 0)}
 ]
 
 
@@ -317,6 +318,8 @@ def test_getitem(device, params):
     _A = np.random.randn(5, 5)
     A = nd.array(_A, device=device)
     lhs = fn(_A)
+    print("lhs: ", lhs)
+    print("lhs shape: ", lhs.shape)
     rhs = fn(A)
     np.testing.assert_allclose(lhs, rhs.numpy(), atol=1e-5, rtol=1e-5)
     compare_strides(lhs, rhs)
