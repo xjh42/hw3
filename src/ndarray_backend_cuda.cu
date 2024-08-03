@@ -12,9 +12,11 @@ namespace cuda {
 
 #define BASE_THREAD_NUM 256
 
+
 #define TILE 4
 typedef float scalar_t;
 const size_t ELEM_SIZE = sizeof(scalar_t);
+const bool USE_REGISTER_TILING = true;
 
 struct CudaArray {
   CudaArray(const size_t size) {
@@ -41,6 +43,18 @@ CudaDims CudaOneDim(size_t size) {
   size_t num_blocks = (size + BASE_THREAD_NUM - 1) / BASE_THREAD_NUM;
   dim.block = dim3(BASE_THREAD_NUM, 1, 1);
   dim.grid = dim3(num_blocks, 1, 1);
+  return dim;
+}
+
+CudaDims CudaTwoDim(size_t x_size, size_t y_size) {
+  /**
+   * Utility function to get cuda dimensions for 2D call
+   */
+  CudaDims dim;
+  size_t x_num_blocks = (x_size + BASE_THREAD_NUM - 1) / BASE_THREAD_NUM;
+  size_t y_num_blocks = (y_size + BASE_THREAD_NUM - 1) / BASE_THREAD_NUM;
+  dim.block = dim3(BASE_THREAD_NUM, 1, 1);
+  dim.grid = dim3(x_num_blocks, y_num_blocks, 1);
   return dim;
 }
 
@@ -460,7 +474,21 @@ void EwiseTanh(const CudaArray& a, CudaArray* out) {
 ////////////////////////////////////////////////////////////////////////////////
 // Elementwise and scalar operations
 ////////////////////////////////////////////////////////////////////////////////
+__global__ void RegisterTilingMatmulKernel(const scalar_t* a, const scalar_t*  b, scalar_t*  out, uint32_t M, uint32_t N,
+            uint32_t P) {
+  size_t ybase = blockIdx.y * blockIdx.y + threadIdx.y;
+  size_t xbase = blockIdx.x * blockIdx.x + threadIdx.x;
 
+  for (uint32_t k = 0; k < N; k++) {
+    // fill tile
+    for (uint32_t y = 0; y < TILE; y++) {
+      for (uin32_t x = 0; x < TILE; x++) {
+        
+      }
+    }
+  }
+
+}
 
 void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, uint32_t N,
             uint32_t P) {
@@ -487,7 +515,13 @@ void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, 
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  CudaDims dim = CudaTwoDim(M, P);
+  if (USE_REGISTER_TILING) {
+    RegisterTilingMatmulKernel<<<dim.grid, dim.block>>>(a.ptr,b.ptr, out->ptr, M, N, P);
+  } else {
+    // block level tiling
+    assert(false && "Not Implemented");
+  }
   /// END SOLUTION
 }
 
@@ -616,7 +650,7 @@ PYBIND11_MODULE(ndarray_backend_cuda, m) {
   m.def("ewise_exp", EwiseExp);
   m.def("ewise_tanh", EwiseTanh);
 
-  // m.def("matmul", Matmul);
+  m.def("matmul", Matmul);
 
   m.def("reduce_max", ReduceMax);
   m.def("reduce_sum", ReduceSum);
