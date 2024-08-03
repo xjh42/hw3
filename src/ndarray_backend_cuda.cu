@@ -53,7 +53,7 @@ CudaDims CudaTwoDim(size_t x_size, size_t y_size) {
   CudaDims dim;
   size_t x_num_blocks = (x_size + BASE_THREAD_NUM - 1) / BASE_THREAD_NUM;
   size_t y_num_blocks = (y_size + BASE_THREAD_NUM - 1) / BASE_THREAD_NUM;
-  dim.block = dim3(BASE_THREAD_NUM, 1, 1);
+  dim.block = dim3(BASE_THREAD_NUM, BASE_THREAD_NUM, 1);
   dim.grid = dim3(x_num_blocks, y_num_blocks, 1);
   return dim;
 }
@@ -474,20 +474,17 @@ void EwiseTanh(const CudaArray& a, CudaArray* out) {
 ////////////////////////////////////////////////////////////////////////////////
 // Elementwise and scalar operations
 ////////////////////////////////////////////////////////////////////////////////
-__global__ void RegisterTilingMatmulKernel(const scalar_t* a, const scalar_t*  b, scalar_t*  out, uint32_t M, uint32_t N,
+__global__ void MatmulKernel(const scalar_t* a, const scalar_t*  b, scalar_t*  out, uint32_t M, uint32_t N,
             uint32_t P) {
-  size_t ybase = blockIdx.y * blockIdx.y + threadIdx.y;
-  size_t xbase = blockIdx.x * blockIdx.x + threadIdx.x;
+  size_t j = blockIdx.y * blockDim.y + threadIdx.y;
+  size_t i = blockIdx.x * blockDim.x + threadIdx.x;
 
-  for (uint32_t k = 0; k < N; k++) {
-    // fill tile
-    for (uint32_t y = 0; y < TILE; y++) {
-      for (uin32_t x = 0; x < TILE; x++) {
-        
-      }
+  if (i < M && j < P) {
+    out[i * P + j] = 0;
+    for (uint32_t k = 0; k < N; k++) {
+      out[i * P + j] += a[i * N + k] * b[k * P + j];
     }
   }
-
 }
 
 void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, uint32_t N,
@@ -515,9 +512,10 @@ void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, 
    */
 
   /// BEGIN SOLUTION
-  CudaDims dim = CudaTwoDim(M, P);
   if (USE_REGISTER_TILING) {
-    RegisterTilingMatmulKernel<<<dim.grid, dim.block>>>(a.ptr,b.ptr, out->ptr, M, N, P);
+    dim3 grid(BASE_THREAD_NUM, BASE_THREAD_NUM, 1);
+    dim3 block((M + BASE_THREAD_NUM - 1) / BASE_THREAD_NUM, (P + BASE_THREAD_NUM - 1) / BASE_THREAD_NUM, 1);
+    MatmulKernel<<<grid, block>>>(a.ptr, b.ptr, out->ptr, M, N, P);
   } else {
     // block level tiling
     assert(false && "Not Implemented");
